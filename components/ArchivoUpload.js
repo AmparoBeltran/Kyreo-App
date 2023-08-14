@@ -1,24 +1,25 @@
 import { FormControl } from "@chakra-ui/react";
 import { getDownloadURL, ref, uploadBytesResumable } from "firebase/storage";
 import { storage } from "../lib/firebase";
+import toast from "react-hot-toast";
 
 export default function ArchivoUpload(props) {
   function handleUpload(event) {
-    const file = event.target.files[0]
+    const file = event.target.files[0];
 
     const storageRef = ref(storage, `${props.path}/${props.uid}/${file.name}`);
     const uploadTask = uploadBytesResumable(storageRef, file);
 
-    uploadTask.on("state_changed",
-      (snapshot) => {
-        
-      },
+    uploadTask.on(
+      "state_changed",
+      (snapshot) => {},
       (error) => {
         alert(error);
       },
       () => {
         getDownloadURL(uploadTask.snapshot.ref).then((downloadURL) => {
-          props.setArchivoUrl(downloadURL)
+          props.setArchivoUrl(downloadURL);
+          toast.success("PDF añadido a la biblioteca!");
         });
       }
     );
@@ -27,7 +28,12 @@ export default function ArchivoUpload(props) {
   }
   return (
     <FormControl>
-      <input accept=".pdf" ref={props.inputRef} type="file" onChange={handleUpload} />
+      <input
+        accept=".pdf"
+        ref={props.inputRef}
+        type="file"
+        onChange={handleUpload}
+      />
     </FormControl>
   );
 }

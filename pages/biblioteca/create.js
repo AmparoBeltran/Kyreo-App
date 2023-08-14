@@ -194,7 +194,7 @@ function CreateNewPost() {
               variant="outline"
               onClick={() => archivoRef.current.click()}
             >
-              Subir PDF
+              {archivoUrl === "" ? "Subir PDF" : "PDF guardado"}
             </Button>
 
             <Button
