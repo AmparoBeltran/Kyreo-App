@@ -17,6 +17,8 @@ import {
   VStack,
 } from "@chakra-ui/react";
 import DiagnosticList from "./DiagnosticList";
+import DiagnosticItem from "./DiagnosticItem";
+import BibliotecaItem from "./BibliotecaItem";
 
 export default function SearchResults({
   searchString = "",
@@ -68,7 +70,24 @@ export default function SearchResults({
               />
             </InputGroup>
 
-            <DiagnosticList diagnostics={results} onClick={handleClose} />
+            <VStack width={"3xl"} alignItems={"center"} spacing={6}>
+              {results.map((result) =>
+                result.titulo ? (
+                  <BibliotecaItem
+                    key={result.slug}
+                    data={result}
+                    onClick={handleClose}
+                  />
+                ) : (
+                  <DiagnosticItem
+                    key={result.slug}
+                    data={result}
+                    onClick={handleClose}
+                  />
+                )
+              )}
+            </VStack>
+            {/* <DiagnosticList diagnostics={results} onClick={handleClose} /> */}
           </AlertDialogBody>
 
           <AlertDialogFooter>

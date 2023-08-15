@@ -6,14 +6,14 @@ import {
   query,
   where,
   getDocs,
-  limit,
+  // limit,
   orderBy,
 } from "firebase/firestore";
 import BibliotecaList from "../../components/BibliotecaList";
 
-const LIMIT = 5;
+// const LIMIT = 5;
 
-export default function Biblioteca () {
+export default function Biblioteca() {
   const [posts, setPosts] = useState([]);
 
   useEffect(() => {
@@ -22,8 +22,8 @@ export default function Biblioteca () {
     const posts = query(
       collectionGroup(firestore, "posts"),
       where("published", "==", true),
-      orderBy("createdAt", "desc"),
-      limit(LIMIT)
+      orderBy("createdAt", "desc")
+      // limit(LIMIT)
     );
 
     getDocs(posts).then((posts) => {

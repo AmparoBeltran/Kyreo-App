@@ -55,7 +55,7 @@ export default function BibliotecaItem(props) {
             </Box>
           </Box>
           <NextLink href={`/biblioteca/${props.data.slug}`} passHref>
-            <LinkOverlay>
+            <LinkOverlay onClick={props.onClick}>
               <Box
                 my="1"
                 fontWeight="semibold"
