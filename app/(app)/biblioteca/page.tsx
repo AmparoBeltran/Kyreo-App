@@ -1,10 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import Image from "next/image";
 import { useQuery } from "@tanstack/react-query";
-import { FileText, Plus } from "lucide-react";
+import { Plus } from "lucide-react";
 import { listArticulos } from "@/lib/data/articulos";
+import { CoverThumb } from "@/components/cover-image";
 import { Button } from "@/components/ui/button";
 import { Card, EmptyState, ErrorState, Spinner } from "@/components/ui/card";
 import { excerpt, formatDate } from "@/lib/utils";
@@ -57,20 +57,7 @@ export default function BibliotecaPage() {
                   className="group block h-full"
                 >
                   <Card className="flex h-full flex-col overflow-hidden transition-colors group-hover:border-primary">
-                    {a.foto ? (
-                      <Image
-                        src={a.foto}
-                        alt=""
-                        width={480}
-                        height={200}
-                        className="h-32 w-full object-cover"
-                        unoptimized
-                      />
-                    ) : (
-                      <div className="flex h-32 items-center justify-center bg-muted">
-                        <FileText className="size-6 text-muted-foreground" aria-hidden="true" />
-                      </div>
-                    )}
+                    <CoverThumb src={a.foto} />
                     <div className="flex flex-1 flex-col p-4">
                       <h2 className="line-clamp-2 text-sm font-semibold text-foreground">
                         {a.titulo || "Sin título"}

@@ -186,14 +186,18 @@ function UploadSlot({
       </span>
 
       {preview && value && (
-        <Image
-          src={value}
-          alt=""
-          width={480}
-          height={270}
-          className="h-auto w-full max-w-xs rounded-xl border border-border object-cover"
-          unoptimized
-        />
+        // Contained, not cover: the upload preview must show what will actually be
+        // stored, and covers are portrait pages that a landscape crop would slice.
+        <div className="flex w-full max-w-xs items-center justify-center rounded-xl border border-border bg-muted p-2">
+          <Image
+            src={value}
+            alt="Vista previa de la portada"
+            width={480}
+            height={480}
+            className="h-auto max-h-48 w-auto max-w-full rounded-lg object-contain"
+            unoptimized
+          />
+        </div>
       )}
       {!preview && value && (
         <p className="text-xs text-muted-foreground">Archivo cargado correctamente.</p>

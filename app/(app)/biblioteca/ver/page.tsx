@@ -2,11 +2,11 @@
 
 import { Suspense } from "react";
 import Link from "next/link";
-import Image from "next/image";
 import { useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { ChevronLeft, Download, Pencil } from "lucide-react";
 import { getArticulo } from "@/lib/data/articulos";
+import { CoverFull } from "@/components/cover-image";
 import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { Card, EmptyState, ErrorState, Spinner } from "@/components/ui/card";
@@ -73,27 +73,30 @@ function ArticuloDetail() {
               <time dateTime={a.createdAt?.toISOString()}>{formatDate(a.createdAt)}</time>
             </p>
           </div>
-          {isOwner && (
-            <Link href={`/biblioteca/editar/?u=${a.uid}&d=${a.id}`}>
-              <Button variant="outline">
-                <Pencil aria-hidden="true" />
-                Editar
-              </Button>
-            </Link>
-          )}
+          {/* Downloading is the primary action for a library item, so it sits with
+              the title rather than below the cover, where it fell off the fold. */}
+          <div className="flex flex-wrap items-center gap-2">
+            {a.archivoUrl && (
+              <a href={a.archivoUrl} target="_blank" rel="noopener noreferrer">
+                <Button variant="accent">
+                  <Download aria-hidden="true" />
+                  Descargar PDF
+                </Button>
+              </a>
+            )}
+            {isOwner && (
+              <Link href={`/biblioteca/editar/?u=${a.uid}&d=${a.id}`}>
+                <Button variant="outline">
+                  <Pencil aria-hidden="true" />
+                  Editar
+                </Button>
+              </Link>
+            )}
+          </div>
         </div>
       </div>
 
-      {a.foto && (
-        <Image
-          src={a.foto}
-          alt=""
-          width={1200}
-          height={600}
-          className="h-auto w-full rounded-card border border-border object-cover"
-          unoptimized
-        />
-      )}
+      {a.foto && <CoverFull src={a.foto} />}
 
       {a.descripcion && (
         <Card className="p-4 sm:p-6">
@@ -103,6 +106,7 @@ function ArticuloDetail() {
         </Card>
       )}
 
+      {/* Repeated at the end for anyone who read all the way down. */}
       {a.archivoUrl && (
         <a
           href={a.archivoUrl}
@@ -110,7 +114,7 @@ function ArticuloDetail() {
           rel="noopener noreferrer"
           className="inline-flex"
         >
-          <Button variant="accent" size="lg">
+          <Button variant="outline" size="lg">
             <Download aria-hidden="true" />
             Descargar PDF
           </Button>
