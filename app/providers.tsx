@@ -4,6 +4,7 @@ import { useState, type ReactNode } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "sonner";
 import { AuthProvider } from "@/lib/auth";
+import { ServiceWorkerRegistrar } from "@/components/sw-register";
 
 export function Providers({ children }: { children: ReactNode }) {
   const [queryClient] = useState(
@@ -29,6 +30,7 @@ export function Providers({ children }: { children: ReactNode }) {
       <AuthProvider>
         {children}
         <Toaster position="top-center" richColors closeButton />
+        <ServiceWorkerRegistrar />
       </AuthProvider>
     </QueryClientProvider>
   );
