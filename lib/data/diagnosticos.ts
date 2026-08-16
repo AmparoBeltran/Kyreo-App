@@ -17,6 +17,7 @@ import {
   type QueryDocumentSnapshot,
 } from "firebase/firestore";
 import { db } from "@/lib/firebase";
+import { withTimeout } from "./with-timeout";
 import { normalizeText } from "@/lib/utils";
 import {
   DIAGNOSTICO_FIELD_NAMES,
@@ -114,7 +115,7 @@ export async function listDiagnosticos(
     ? query(collectionGroup(db, COLLECTION), orderBy("createdAt", "desc"), startAfter(cursor), fbLimit(pageSize + 1))
     : query(collectionGroup(db, COLLECTION), ...constraints);
 
-  const snap = await getDocs(q);
+  const snap = await withTimeout("listar diagnósticos", getDocs(q));
   const docs = snap.docs;
   const hasMore = docs.length > pageSize;
   const page = hasMore ? docs.slice(0, pageSize) : docs;
@@ -131,12 +132,12 @@ export async function listMyDiagnosticos(uid: string): Promise<Diagnostico[]> {
     collection(db, "users", uid, COLLECTION),
     orderBy("createdAt", "desc"),
   );
-  const snap = await getDocs(q);
+  const snap = await withTimeout("mis diagnósticos", getDocs(q));
   return snap.docs.map(diagnosticoFromSnapshot);
 }
 
 export async function getDiagnostico(uid: string, id: string): Promise<Diagnostico | null> {
-  const snap = await getDoc(doc(db, "users", uid, COLLECTION, id));
+  const snap = await withTimeout("abrir diagnóstico", getDoc(doc(db, "users", uid, COLLECTION, id)));
   if (!snap.exists()) return null;
   return diagnosticoFromSnapshot(snap);
 }
@@ -210,7 +211,7 @@ export async function fetchSearchPool(): Promise<Diagnostico[]> {
     orderBy("createdAt", "desc"),
     fbLimit(SEARCH_POOL_SIZE),
   );
-  const snap = await getDocs(q);
+  const snap = await withTimeout("buscar", getDocs(q));
   if (snap.size === SEARCH_POOL_SIZE) {
     // Loud rather than silent: a truncated pool means search is no longer complete.
     console.warn(

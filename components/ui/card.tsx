@@ -1,4 +1,7 @@
+"use client";
+
 import { cn } from "@/lib/utils";
+import { clearLocalData } from "@/lib/data/with-timeout";
 
 export function Card({
   className,
@@ -64,14 +67,28 @@ export function ErrorState({
     >
       <h2 className="text-sm font-semibold text-destructive">No se han podido cargar los datos</h2>
       <p className="mt-1 text-sm text-muted-foreground">{message}</p>
-      {onRetry && (
+      <div className="mt-4 flex flex-wrap items-center gap-4">
+        {onRetry && (
+          <button
+            onClick={onRetry}
+            className="text-sm font-medium text-primary underline underline-offset-4"
+          >
+            Reintentar
+          </button>
+        )}
+        {/*
+          Escape hatch for a browser whose local Firestore cache is unusable — a
+          stale IndexedDB lease can leave reads pending forever. Clearing it and
+          reloading is the fix, and asking a student to "clear site data" by hand
+          is not realistic. Sign-in is preserved.
+        */}
         <button
-          onClick={onRetry}
-          className="mt-4 text-sm font-medium text-primary underline underline-offset-4"
+          onClick={() => void clearLocalData()}
+          className="text-sm text-muted-foreground underline underline-offset-4 hover:text-foreground"
         >
-          Reintentar
+          Limpiar datos locales y recargar
         </button>
-      )}
+      </div>
     </div>
   );
 }

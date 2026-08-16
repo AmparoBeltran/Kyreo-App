@@ -15,6 +15,7 @@ import {
   type DocumentSnapshot,
 } from "firebase/firestore";
 import { db } from "@/lib/firebase";
+import { withTimeout } from "./with-timeout";
 import { normalizeText } from "@/lib/utils";
 
 /** Unchanged path: `users/{uid}/posts/{autoId}`. "Biblioteca" is the UI name. */
@@ -75,12 +76,12 @@ export async function listArticulos(max = 200): Promise<Articulo[]> {
     orderBy("createdAt", "desc"),
     fbLimit(max),
   );
-  const snap = await getDocs(q);
+  const snap = await withTimeout("listar biblioteca", getDocs(q));
   return snap.docs.map(articuloFromSnapshot);
 }
 
 export async function getArticulo(uid: string, id: string): Promise<Articulo | null> {
-  const snap = await getDoc(doc(db, "users", uid, COLLECTION, id));
+  const snap = await withTimeout("abrir artículo", getDoc(doc(db, "users", uid, COLLECTION, id)));
   if (!snap.exists()) return null;
   return articuloFromSnapshot(snap);
 }
