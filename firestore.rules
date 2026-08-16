@@ -1,8 +1,141 @@
 rules_version = '2';
+
+// Kyreo security rules.
+//
+// The previous rules were `allow read, write: if request.auth.uid != null` on
+// `/{document=**}` — every signed-in student could read, overwrite or delete any
+// other student's work. The only ownership check in the app was a client-side
+// comparison of Firebase Auth displayName strings, which is cosmetic.
+//
+// Ownership here is taken from the document PATH (`/users/{uid}/...`), never from a
+// field in the payload, so a client cannot claim to own something by writing a
+// different `uid`. This is the main reason the data structure was kept as-is rather
+// than flattened into top-level collections.
+
 service cloud.firestore {
   match /databases/{database}/documents {
-    match /{document=**} {
-      allow read, write: if request.auth.uid != null;
+
+    function isSignedIn() {
+      return request.auth != null;
     }
+
+    function isOwner(uid) {
+      return isSignedIn() && request.auth.uid == uid;
+    }
+
+    // On create, the payload's uid must agree with the path. Defence in depth: the
+    // path already governs access, but this keeps denormalised data honest.
+    function uidMatchesPath(uid) {
+      return request.resource.data.uid == uid;
+    }
+
+    // createdAt is written once and never again. Without this, an edit could
+    // rewrite history or drop the field — and a document with no createdAt is
+    // excluded by every orderBy("createdAt") query, i.e. it silently disappears.
+    function createdAtPreserved() {
+      return request.resource.data.createdAt == resource.data.createdAt;
+    }
+
+    // Every record must be born with a server-set createdAt. A document without
+    // one is invisible to the feed, to search and to every list, while still
+    // existing in the database — the precise failure mode this rebuild exists to
+    // eliminate, so it is refused at the door rather than tolerated.
+    function createdAtIsServerTime() {
+      return request.resource.data.createdAt == request.time;
+    }
+
+    // ---- Collection group reads ------------------------------------------------
+    //
+    // The feed, the biblioteca list and search are all collection group queries.
+    // Firestore evaluates those against a RECURSIVE WILDCARD path, not against the
+    // concrete /users/{uid}/diagnosticos/{id} path — so a rule scoped to the
+    // concrete path permits getDoc but denies the exact same document via
+    // collectionGroup(). Without these three blocks every list renders empty.
+    //
+    // Reads only. Writes stay scoped to /users/{uid}/... below, where the owner is
+    // in the path and therefore cannot be spoofed.
+    match /{path=**}/diagnosticos/{docId} {
+      allow read: if isSignedIn();
+    }
+    match /{path=**}/posts/{docId} {
+      allow read: if isSignedIn();
+    }
+    match /{path=**}/comments/{commentId} {
+      allow read: if isSignedIn();
+    }
+
+    // ---- Username reservations -------------------------------------------------
+    // Claimed at registration. Permanent: allowing update/delete would let one
+    // student release or steal another's name, and authorship is displayed by name.
+    match /usernames/{username} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn()
+                    && request.resource.data.uid == request.auth.uid;
+      allow update, delete: if false;
+    }
+
+    // ---- Users -----------------------------------------------------------------
+    match /users/{uid} {
+      allow read: if isSignedIn();
+      allow write: if isOwner(uid);
+
+      // ---- Diagnósticos --------------------------------------------------------
+      // Readable by any signed-in student: the whole point of the app is sharing
+      // clinical work with the class. Writable only by the author.
+      match /diagnosticos/{docId} {
+        allow read: if isSignedIn();
+        allow create: if isOwner(uid) && uidMatchesPath(uid) && createdAtIsServerTime();
+        allow update: if isOwner(uid) && createdAtPreserved();
+        allow delete: if isOwner(uid);
+
+        match /comments/{commentId} {
+          allow read: if isSignedIn();
+          allow create: if isSignedIn()
+                        && request.resource.data.uid == request.auth.uid
+                        && request.resource.data.comment is string
+                        && request.resource.data.comment.size() > 0
+                        && request.resource.data.comment.size() <= 5000;
+          // Comments carry a uid from now on, so the author can correct or remove
+          // their own. Legacy comments have no uid and are therefore immutable.
+          allow update, delete: if isSignedIn()
+                                && resource.data.uid == request.auth.uid;
+        }
+      }
+
+      // ---- Biblioteca (artículos) ---------------------------------------------
+      match /posts/{docId} {
+        allow read: if isSignedIn();
+        allow create: if isOwner(uid) && uidMatchesPath(uid) && createdAtIsServerTime();
+        allow update: if isOwner(uid) && createdAtPreserved();
+        allow delete: if isOwner(uid);
+
+        // Legacy "hearts" subcollection from the original tutorial template.
+        match /hearts/{heartId} {
+          allow read: if isSignedIn();
+          allow write: if isOwner(heartId);
+        }
+      }
+    }
+
+    // ---- Legacy archive --------------------------------------------------------
+    // The 2019–2022 `diagnostics` collection (48 documents), superseded by the Jan
+    // 2023 migration. Kept readable for reference and provenance; frozen against
+    // writes so nothing can corrupt the archive.
+    match /diagnostics/{docId} {
+      allow read: if isSignedIn();
+      allow write: if false;
+
+      // The 34 surviving comments from 2019-2022 live at
+      // diagnostics/{legacyId}/comments/{id}. Firestore rules do NOT cascade to
+      // subcollections, so without this block the archive's comments would be
+      // denied — silently hiding real student discussion, which is exactly the
+      // class of bug this rebuild exists to fix.
+      match /{sub=**} {
+        allow read: if isSignedIn();
+        allow write: if false;
+      }
+    }
+
+    // Anything not matched above is denied. No `/{document=**}` catch-all.
   }
 }

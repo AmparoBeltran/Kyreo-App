@@ -31,3 +31,17 @@ yarn-error.log*
 # vercel
 .vercel
 .firebase/hosting.b3V0.cache
+
+# TypeScript incremental build cache
+*.tsbuildinfo
+
+# Playwright
+/test-results/
+/playwright-report/
+/blob-report/
+/playwright/.cache/
+
+# Firebase CLI logs
+firebase-debug.log*
+firestore-debug.log*
+ui-debug.log*

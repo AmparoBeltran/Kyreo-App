@@ -1,0 +1,167 @@
+@import "tailwindcss";
+
+/* Class-based dark mode so the theme toggle wins over the OS setting. */
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  /* ---- Brand: navy. #1D3C58 is the original Kyreo navy, kept as navy-800. ---- */
+  --color-navy-50: #f1f6fa;
+  --color-navy-100: #e2ecf4;
+  --color-navy-200: #bfd6e8;
+  --color-navy-300: #8ab5d5;
+  --color-navy-400: #4e8fbd;
+  --color-navy-500: #2f6f9f;
+  --color-navy-600: #275a83;
+  --color-navy-700: #234b6c;
+  --color-navy-800: #1d3c58;
+  --color-navy-900: #1b3450;
+  --color-navy-950: #122135;
+
+  /* ---- Brand: pink. #FF6584 is the original accent, kept as pink-400. ---- */
+  --color-pink-50: #fff1f4;
+  --color-pink-100: #ffe3e9;
+  --color-pink-200: #ffccd7;
+  --color-pink-300: #ffa3b8;
+  --color-pink-400: #ff6584;
+  --color-pink-500: #f93d67;
+  --color-pink-600: #e61c50;
+  --color-pink-700: #c21243;
+  --color-pink-800: #a2123f;
+  --color-pink-900: #8b133c;
+  --color-pink-950: #4e041c;
+
+  --font-sans: var(--font-noto-sans), ui-sans-serif, system-ui, sans-serif;
+
+  /* One breakpoint scale, replacing the three that used to disagree. */
+  --breakpoint-xs: 24rem; /* 384px */
+  --breakpoint-sm: 40rem; /* 640px */
+  --breakpoint-md: 48rem; /* 768px  — tablet */
+  --breakpoint-lg: 64rem; /* 1024px */
+  --breakpoint-xl: 80rem; /* 1280px — desktop */
+  --breakpoint-2xl: 96rem; /* 1536px */
+}
+
+/* ---- Semantic tokens. Light is defined on bare :root so nothing depends on a
+   media query being matched; dark only redefines. ---- */
+:root {
+  --background: var(--color-navy-50);
+  --foreground: var(--color-navy-900);
+  --card: #ffffff;
+  --card-foreground: var(--color-navy-900);
+  --muted: var(--color-navy-100);
+  --muted-foreground: #5b7186;
+  --border: #d7e3ee;
+  --input: #ffffff;
+  --primary: var(--color-navy-800);
+  --primary-foreground: #ffffff;
+  --accent: var(--color-pink-400);
+  --accent-foreground: #ffffff;
+  --destructive: #c62828;
+  --destructive-foreground: #ffffff;
+  --ring: var(--color-navy-400);
+  --radius: 0.75rem;
+}
+
+.dark {
+  --background: #0e1a26;
+  --foreground: #e6eef6;
+  --card: #15242f;
+  --card-foreground: #e6eef6;
+  --muted: #1c2f3d;
+  --muted-foreground: #9db0c1;
+  --border: #24394a;
+  --input: #15242f;
+  --primary: var(--color-navy-300);
+  --primary-foreground: var(--color-navy-950);
+  --accent: var(--color-pink-400);
+  --accent-foreground: var(--color-navy-950);
+  --destructive: #ef5350;
+  --destructive-foreground: #1a0b0b;
+  --ring: var(--color-navy-400);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-ring: var(--ring);
+  --radius-card: var(--radius);
+}
+
+@layer base {
+  * {
+    border-color: var(--color-border);
+  }
+
+  html {
+    /* Never let a long clinical term force the page sideways on a 320px screen. */
+    overflow-x: hidden;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    background-color: var(--color-background);
+    color: var(--color-foreground);
+    font-family: var(--font-sans);
+    /* svh, not vh: mobile browser chrome must not clip the layout. */
+    min-height: 100svh;
+    overflow-x: hidden;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* Visible, consistent focus for keyboard users. */
+  :focus-visible {
+    outline: 2px solid var(--color-ring);
+    outline-offset: 2px;
+  }
+
+  /* Inputs at >=16px on iOS, otherwise Safari zooms the viewport on focus. */
+  @media (max-width: 47.99rem) {
+    input,
+    select,
+    textarea {
+      font-size: 16px;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
+
+@layer utilities {
+  /* Safe-area helpers for notched and gesture-bar devices. */
+  .pt-safe {
+    padding-top: env(safe-area-inset-top);
+  }
+  .pb-safe {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  .pl-safe {
+    padding-left: env(safe-area-inset-left);
+  }
+  .pr-safe {
+    padding-right: env(safe-area-inset-right);
+  }
+  .min-h-dvh-safe {
+    min-height: calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+  }
+}
