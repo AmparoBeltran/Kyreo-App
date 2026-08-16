@@ -72,13 +72,45 @@ which installs Temurin 21. **Do not deploy rules without a green run** — the
 `createdAt` immutability rule is the one whose failure mode is "every save is
 denied in production."
 
-## Enable before the first deploy
+## Database safety settings
 
-Both are off today and both are one-click in the Firebase console:
+Both are now **enabled** (done before the first v2 deploy):
 
-- **Point-in-time recovery** (Firestore → Backups). Currently
-  `POINT_IN_TIME_RECOVERY_DISABLED` with a 1-hour window; enabling gives 7 days.
-- **Delete protection** on the database. Currently `DELETE_PROTECTION_DISABLED`.
+- **Point-in-time recovery** — `POINT_IN_TIME_RECOVERY_ENABLED`, 7-day retention.
+- **Delete protection** — `DELETE_PROTECTION_ENABLED`.
+
+## Collection group queries need their own rules — this broke production once
+
+The feed, the biblioteca list and search are all `collectionGroup()` queries.
+Firestore evaluates those against a **recursive-wildcard path**, not the concrete
+one. A rule like:
+
+```
+match /users/{uid}/diagnosticos/{docId} { allow read: if isSignedIn(); }
+```
+
+permits `getDoc` but **denies the identical document via `collectionGroup()`**.
+The first v2 deploy shipped exactly that, and every list rendered empty until
+these were added:
+
+```
+match /{path=**}/diagnosticos/{docId} { allow read: if isSignedIn(); }
+match /{path=**}/posts/{docId}        { allow read: if isSignedIn(); }
+match /{path=**}/comments/{commentId} { allow read: if isSignedIn(); }
+```
+
+Reads only — writes stay scoped to `/users/{uid}/...`, where the owner is in the
+path and cannot be spoofed.
+
+**If you touch the rules, make sure `tests/rules` still exercises the collection
+group path.** The original suite had 24 passing tests and missed this entirely,
+because every read test used `getDoc`. Post-deploy verification caught it, not CI.
+
+Rules-only deploys are safe and fast for this kind of fix:
+
+```bash
+npx firebase deploy --only firestore:rules --project kyreo-app
+```
 
 ## After deploying
 
@@ -95,12 +127,24 @@ Both are off today and both are one-click in the Firebase console:
 them from repository secrets — see the `e2e` job. They are public identifiers, not
 secrets; access is controlled by the security rules.
 
-## Housekeeping
+## Verifying against production
 
-A QA account, `qa.rebuild.test@example.com`, exists in production Firebase Auth.
-It was created to verify the rebuild against real data. Delete it when it is no
-longer useful:
+There is deliberately **no standing QA account** — the one used to verify the v2
+deploy was deleted afterwards. Create a throwaway when needed and remove it after:
 
 ```bash
-npx firebase auth:export /tmp/users.json --project kyreo-app   # inspect first
+KEY=$(grep API_KEY .env.local | cut -d= -f2)
+curl -s -X POST "https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=$KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"email":"qa@example.com","password":"...","returnSecureToken":true}'
+# ...verify..., then delete with the returned idToken:
+curl -s -X POST "https://identitytoolkit.googleapis.com/v1/accounts:delete?key=$KEY" \
+  -H "Content-Type: application/json" -d '{"idToken":"<token>"}'
+```
+
+Anything created while testing is visible to every student, so delete test
+diagnostics and comments immediately. Confirm with a count:
+
+```
+collectionGroup("diagnosticos") → 47      collectionGroup("comments") → 34
 ```
