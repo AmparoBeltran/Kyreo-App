@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 import { Search as SearchIcon, X } from "lucide-react";
@@ -76,9 +77,22 @@ function SearchDialog({ onClose }: { onClose: () => void }) {
     return { d, a, total: d.length + a.length };
   }, [term, diagnosticos.data, articulos.data]);
 
-  return (
+  /**
+   * Rendered through a portal into <body>, NOT in place.
+   *
+   * The search button lives in the app header, and that header uses
+   * `backdrop-blur`. A `backdrop-filter` establishes a containing block for
+   * `position: fixed` descendants, so `fixed inset-0` resolved against the 56px
+   * header instead of the viewport: the overlay was 1440x56, the panel 8px tall
+   * and the results — present in the DOM — were crushed into 16px. Searching
+   * appeared to do nothing.
+   *
+   * A portal moves the dialog outside that containing block entirely, which is
+   * more robust than removing the blur or fighting it with extra CSS.
+   */
+  const dialog = (
     <div
-      className="fixed inset-0 z-50 flex flex-col bg-black/40 p-0 sm:items-start sm:justify-center sm:p-6"
+      className="fixed inset-0 z-50 flex flex-col justify-center bg-black/40 p-0 sm:p-6"
       role="dialog"
       aria-modal="true"
       aria-label="Buscar"
@@ -166,6 +180,8 @@ function SearchDialog({ onClose }: { onClose: () => void }) {
       </div>
     </div>
   );
+
+  return createPortal(dialog, document.body);
 }
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
