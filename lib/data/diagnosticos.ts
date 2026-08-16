@@ -220,13 +220,82 @@ export async function fetchSearchPool(): Promise<Diagnostico[]> {
   return snap.docs.map(diagnosticoFromSnapshot);
 }
 
-export function matchesDiagnostico(d: Diagnostico, term: string): boolean {
+/**
+ * Relevance weights. Everything is searched; these only decide ordering.
+ * A pattern match is the strongest signal, then the presenting complaint.
+ */
+const FIELD_WEIGHTS: Record<string, number> = {
+  patron: 100,
+  motivoConsulta: 60,
+  diagnosticoAlopatico: 50,
+  principioTerapeutico: 40,
+  formulaAcupuntural: 30,
+  fitoterapia: 30,
+  antecedentes: 25,
+};
+const DEFAULT_WEIGHT = 15;
+const AUTHOR_WEIGHT = 70;
+
+/** `foto` holds a Storage URL — searching it would match on "https" and similar. */
+const NON_TEXT_FIELDS = new Set(["foto"]);
+
+export type DiagnosticoMatch = {
+  diagnostico: Diagnostico;
+  score: number;
+  /** Field names that matched, most relevant first — used to explain the hit. */
+  fields: string[];
+};
+
+/**
+ * Searches every clinical field, not a hand-picked few.
+ *
+ * The previous matcher looked at only `patron`, `username`, `motivoConsulta` and
+ * `diagnosticoAlopatico` — 4 of 26 text fields. Measured against the real 47
+ * records that silently lost most genuine hits: "20V" (an acupuncture point) found
+ * 0 of 17, "moxa" 0 of 6, "acupuntura" 6 of 22, "ansiedad" 4 of 16. A student
+ * searching for a point, a herb or a symptom got nothing back, which is what
+ * "search doesn't work" meant.
+ */
+export function searchDiagnostico(d: Diagnostico, term: string): DiagnosticoMatch | null {
   const t = normalizeText(term);
-  if (!t) return false;
-  return (
-    normalizeText(d.values.patron ?? "").includes(t) ||
-    normalizeText(d.username).includes(t) ||
-    normalizeText(d.values.motivoConsulta ?? "").includes(t) ||
-    normalizeText(d.values.diagnosticoAlopatico ?? "").includes(t)
-  );
+  if (!t) return null;
+
+  let score = 0;
+  const hits: Array<{ field: string; weight: number }> = [];
+
+  if (normalizeText(d.username).includes(t)) {
+    score += AUTHOR_WEIGHT;
+    hits.push({ field: "username", weight: AUTHOR_WEIGHT });
+  }
+
+  for (const name of DIAGNOSTICO_FIELD_NAMES) {
+    if (NON_TEXT_FIELDS.has(name)) continue;
+    const value = d.values[name];
+    if (!value) continue;
+    if (!normalizeText(value).includes(t)) continue;
+    const weight = FIELD_WEIGHTS[name] ?? DEFAULT_WEIGHT;
+    score += weight;
+    hits.push({ field: name, weight });
+  }
+
+  if (score === 0) return null;
+
+  hits.sort((a, b) => b.weight - a.weight);
+  return { diagnostico: d, score, fields: hits.map((h) => h.field) };
+}
+
+/** Ranked results, most relevant first, newest first within equal relevance. */
+export function searchDiagnosticos(
+  list: readonly Diagnostico[],
+  term: string,
+): DiagnosticoMatch[] {
+  return list
+    .map((d) => searchDiagnostico(d, term))
+    .filter((m): m is DiagnosticoMatch => m !== null)
+    .sort(
+      (a, b) =>
+        b.score - a.score ||
+        (b.diagnostico.createdAt?.getTime() ?? 0) -
+          (a.diagnostico.createdAt?.getTime() ?? 0),
+    );
 }

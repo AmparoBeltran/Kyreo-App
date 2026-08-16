@@ -4,8 +4,9 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 import { Search as SearchIcon, X } from "lucide-react";
-import { fetchSearchPool, matchesDiagnostico } from "@/lib/data/diagnosticos";
-import { listArticulos, matchesArticulo } from "@/lib/data/articulos";
+import { fetchSearchPool, searchDiagnosticos } from "@/lib/data/diagnosticos";
+import { listArticulos, searchArticulos } from "@/lib/data/articulos";
+import { DIAGNOSTICO_FIELD_LABELS } from "@/lib/data/diagnostico-fields";
 import { Spinner } from "@/components/ui/card";
 import { excerpt, formatDate } from "@/lib/utils";
 
@@ -70,8 +71,8 @@ function SearchDialog({ onClose }: { onClose: () => void }) {
 
   const results = useMemo(() => {
     if (term.trim().length < 2) return null;
-    const d = (diagnosticos.data ?? []).filter((x) => matchesDiagnostico(x, term));
-    const a = (articulos.data ?? []).filter((x) => matchesArticulo(x, term));
+    const d = searchDiagnosticos(diagnosticos.data ?? [], term);
+    const a = searchArticulos(articulos.data ?? [], term);
     return { d, a, total: d.length + a.length };
   }, [term, diagnosticos.data, articulos.data]);
 
@@ -125,22 +126,28 @@ function SearchDialog({ onClose }: { onClose: () => void }) {
           )}
 
           {!loading && results && results.d.length > 0 && (
-            <Section title="Diagnósticos">
-              {results.d.map((d) => (
+            <Section title={`Diagnósticos (${results.d.length})`}>
+              {results.d.map(({ diagnostico: d, fields }) => (
                 <ResultLink
                   key={`${d.uid}/${d.id}`}
                   href={`/diagnosticos/ver/?u=${d.uid}&d=${d.id}`}
                   onNavigate={onClose}
                   title={d.values.patron || "Sin patrón"}
                   meta={`${d.username || "—"} · ${formatDate(d.createdAt)}`}
+                  // Say WHERE it matched. A hit on the acupuncture formula or on
+                  // fitoterapia is otherwise indistinguishable from a random result.
+                  matchedIn={fields
+                    .filter((f) => f !== "patron")
+                    .slice(0, 3)
+                    .map((f) => DIAGNOSTICO_FIELD_LABELS[f] ?? f)}
                 />
               ))}
             </Section>
           )}
 
           {!loading && results && results.a.length > 0 && (
-            <Section title="Biblioteca">
-              {results.a.map((a) => (
+            <Section title={`Biblioteca (${results.a.length})`}>
+              {results.a.map(({ articulo: a, fields }) => (
                 <ResultLink
                   key={`${a.uid}/${a.id}`}
                   href={`/biblioteca/ver/?u=${a.uid}&d=${a.id}`}
@@ -148,6 +155,9 @@ function SearchDialog({ onClose }: { onClose: () => void }) {
                   title={a.titulo || "Sin título"}
                   meta={`${a.username || "—"} · ${formatDate(a.createdAt)}`}
                   description={a.descripcion ? excerpt(a.descripcion, 90) : undefined}
+                  matchedIn={fields
+                    .filter((f) => f !== "titulo")
+                    .map((f) => ARTICULO_FIELD_LABELS[f] ?? f)}
                 />
               ))}
             </Section>
@@ -169,17 +179,25 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   );
 }
 
+const ARTICULO_FIELD_LABELS: Record<string, string> = {
+  titulo: "Título",
+  descripcion: "Descripción",
+  username: "Autor/a",
+};
+
 function ResultLink({
   href,
   title,
   meta,
   description,
+  matchedIn,
   onNavigate,
 }: {
   href: string;
   title: string;
   meta: string;
   description?: string;
+  matchedIn?: string[];
   onNavigate: () => void;
 }) {
   return (
@@ -194,6 +212,18 @@ function ResultLink({
           <p className="mt-0.5 line-clamp-1 text-xs text-muted-foreground">{description}</p>
         )}
         <p className="mt-1 text-xs text-muted-foreground">{meta}</p>
+        {matchedIn && matchedIn.length > 0 && (
+          <p className="mt-1.5 flex flex-wrap gap-1">
+            {matchedIn.map((label) => (
+              <span
+                key={label}
+                className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground"
+              >
+                {label}
+              </span>
+            ))}
+          </p>
+        )}
       </Link>
     </li>
   );

@@ -6,10 +6,10 @@ import { Timestamp } from "firebase/firestore";
 // dropped before.
 vi.mock("@/lib/firebase", () => ({ db: {}, auth: {}, storage: {}, app: {} }));
 
-const { diagnosticoFromSnapshot, matchesDiagnostico } = await import(
+const { diagnosticoFromSnapshot, searchDiagnostico, searchDiagnosticos } = await import(
   "@/lib/data/diagnosticos"
 );
-const { articuloFromSnapshot, matchesArticulo } = await import("@/lib/data/articulos");
+const { articuloFromSnapshot, searchArticulo } = await import("@/lib/data/articulos");
 
 /** Minimal stand-in for a Firestore DocumentSnapshot. */
 function snap(id: string, parentUid: string | null, data: Record<string, unknown>) {
@@ -82,34 +82,90 @@ describe("diagnosticoFromSnapshot", () => {
   });
 });
 
-describe("matchesDiagnostico", () => {
+describe("searchDiagnostico", () => {
   const d = diagnosticoFromSnapshot(
     snap("a", "u1", {
       patron: "Bloqueo de Qi de Hígado",
       username: "Paco Mellado",
       motivoConsulta: "Migraña crónica",
+      formulaAcupuntural: "2B, 3B, 36E, 7R, 6RM, 20V, 23V",
+      fitoterapia: "Infusión de jengibre, canela y regaliz",
+      antecedentes: "Gran exigencia en su labor como informático",
+      sueno: "Insomnio de conciliación",
+      observacionesLengua: "Saburra amarilla en la raíz",
     }),
   );
 
   it("matches a mid-word substring, which a token index could not", () => {
-    expect(matchesDiagnostico(d, "estanc")).toBe(false);
-    expect(matchesDiagnostico(d, "bloqueo")).toBe(true);
-    expect(matchesDiagnostico(d, "queo de")).toBe(true);
+    expect(searchDiagnostico(d, "estanc")).toBeNull();
+    expect(searchDiagnostico(d, "bloqueo")).not.toBeNull();
+    expect(searchDiagnostico(d, "queo de")).not.toBeNull();
   });
 
   it("ignores accents and case in both directions", () => {
-    expect(matchesDiagnostico(d, "higado")).toBe(true);
-    expect(matchesDiagnostico(d, "HÍGADO")).toBe(true);
+    expect(searchDiagnostico(d, "higado")).not.toBeNull();
+    expect(searchDiagnostico(d, "HÍGADO")).not.toBeNull();
   });
 
-  it("matches author and motive as well as pattern", () => {
-    expect(matchesDiagnostico(d, "paco")).toBe(true);
-    expect(matchesDiagnostico(d, "migrana")).toBe(true);
+  /**
+   * The reported "search doesn't work". The old matcher checked only patron,
+   * username, motivoConsulta and diagnosticoAlopatico — 4 of 26 text fields.
+   * Against the real 47 records, "20V" found 0 of 17 and "moxa" 0 of 6.
+   */
+  it("searches acupuncture points in the formula", () => {
+    const m = searchDiagnostico(d, "20V");
+    expect(m).not.toBeNull();
+    expect(m!.fields).toContain("formulaAcupuntural");
   });
 
-  it("returns false for an empty term rather than matching everything", () => {
-    expect(matchesDiagnostico(d, "")).toBe(false);
-    expect(matchesDiagnostico(d, "   ")).toBe(false);
+  it("searches herbs in fitoterapia", () => {
+    expect(searchDiagnostico(d, "jengibre")?.fields).toContain("fitoterapia");
+  });
+
+  it("searches free-text clinical notes", () => {
+    expect(searchDiagnostico(d, "informatico")?.fields).toContain("antecedentes");
+    expect(searchDiagnostico(d, "insomnio")?.fields).toContain("sueno");
+    expect(searchDiagnostico(d, "saburra")?.fields).toContain("observacionesLengua");
+  });
+
+  it("never searches the photo URL, which would match on 'https'", () => {
+    const withPhoto = diagnosticoFromSnapshot(
+      snap("p", "u1", { patron: "x", foto: "https://firebasestorage.googleapis.com/a.png" }),
+    );
+    expect(searchDiagnostico(withPhoto, "https")).toBeNull();
+    expect(searchDiagnostico(withPhoto, "firebasestorage")).toBeNull();
+  });
+
+  it("reports which fields matched, most relevant first", () => {
+    const m = searchDiagnostico(d, "higado");
+    expect(m!.fields[0]).toBe("patron");
+  });
+
+  it("returns null for an empty term rather than matching everything", () => {
+    expect(searchDiagnostico(d, "")).toBeNull();
+    expect(searchDiagnostico(d, "   ")).toBeNull();
+  });
+});
+
+describe("searchDiagnosticos ranking", () => {
+  const patternHit = diagnosticoFromSnapshot(
+    snap("pattern", "u1", { patron: "Insomnio por fuego de Corazón", createdAt: null }),
+  );
+  const noteHit = diagnosticoFromSnapshot(
+    snap("note", "u1", { patron: "Xu Yang de Bazo", sueno: "Refiere insomnio ocasional" }),
+  );
+
+  it("ranks a pattern match above an incidental note match", () => {
+    const ranked = searchDiagnosticos([noteHit, patternHit], "insomnio");
+    expect(ranked.map((m) => m.diagnostico.id)).toEqual(["pattern", "note"]);
+  });
+
+  it("returns every match, not just the strongest", () => {
+    expect(searchDiagnosticos([noteHit, patternHit], "insomnio")).toHaveLength(2);
+  });
+
+  it("returns nothing for a term present in no field", () => {
+    expect(searchDiagnosticos([noteHit, patternHit], "zzzzz")).toHaveLength(0);
   });
 });
 
@@ -142,9 +198,16 @@ describe("articuloFromSnapshot", () => {
     const a = articuloFromSnapshot(
       snap("a", "u1", { titulo: "Menière", descripcion: "Vértigo", username: "Paco" }),
     );
-    expect(matchesArticulo(a, "meniere")).toBe(true);
-    expect(matchesArticulo(a, "vertigo")).toBe(true);
-    expect(matchesArticulo(a, "paco")).toBe(true);
-    expect(matchesArticulo(a, "zzz")).toBe(false);
+    expect(searchArticulo(a, "meniere")?.fields).toContain("titulo");
+    expect(searchArticulo(a, "vertigo")?.fields).toContain("descripcion");
+    expect(searchArticulo(a, "paco")?.fields).toContain("username");
+    expect(searchArticulo(a, "zzz")).toBeNull();
+  });
+
+  it("matches legacy title/content documents too", () => {
+    const legacy = articuloFromSnapshot(
+      snap("l", "u1", { title: "Old Post", content: "sobre moxibustión" }),
+    );
+    expect(searchArticulo(legacy, "moxibustion")).not.toBeNull();
   });
 });

@@ -141,6 +141,16 @@ export const DIAGNOSTICO_FIELDS: readonly DiagnosticoField[] =
 
 export const DIAGNOSTICO_FIELD_NAMES: readonly string[] = DIAGNOSTICO_FIELDS.map((f) => f.name);
 
+/**
+ * Field name → Spanish label. Used by search to explain which part of a
+ * diagnóstico matched, so a hit on, say, the acupuncture formula is legible
+ * rather than looking arbitrary.
+ */
+export const DIAGNOSTICO_FIELD_LABELS: Record<string, string> = {
+  ...Object.fromEntries(DIAGNOSTICO_FIELDS.map((f) => [f.name, f.label])),
+  username: "Autor/a",
+};
+
 /** Blank values for every clinical field — used to seed a new form. */
 export function emptyDiagnosticoFields(): Record<string, string> {
   return Object.fromEntries(DIAGNOSTICO_FIELD_NAMES.map((n) => [n, ""]));

@@ -113,6 +113,29 @@ describe("diagnósticos", () => {
     );
   });
 
+  it("denies a create with no createdAt, which would be born invisible", async () => {
+    // Every list and search orders by createdAt, and Firestore excludes documents
+    // missing the ordered field — such a record exists but can never be found.
+    await assertFails(
+      setDoc(doc(alice(), `users/${ALICE}/diagnosticos/nodate`), {
+        uid: ALICE,
+        username: "Alice",
+        patron: "Sin fecha",
+      }),
+    );
+  });
+
+  it("denies a client-chosen createdAt, which could backdate a record", async () => {
+    await assertFails(
+      setDoc(doc(alice(), `users/${ALICE}/diagnosticos/faked`), {
+        uid: ALICE,
+        username: "Alice",
+        patron: "Fecha falsa",
+        createdAt: new Date("2019-01-01"),
+      }),
+    );
+  });
+
   it("denies a create whose uid field disagrees with the path", async () => {
     await assertFails(
       setDoc(doc(alice(), `users/${ALICE}/diagnosticos/new2`), {

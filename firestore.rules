@@ -36,6 +36,14 @@ service cloud.firestore {
       return request.resource.data.createdAt == resource.data.createdAt;
     }
 
+    // Every record must be born with a server-set createdAt. A document without
+    // one is invisible to the feed, to search and to every list, while still
+    // existing in the database — the precise failure mode this rebuild exists to
+    // eliminate, so it is refused at the door rather than tolerated.
+    function createdAtIsServerTime() {
+      return request.resource.data.createdAt == request.time;
+    }
+
     // ---- Collection group reads ------------------------------------------------
     //
     // The feed, the biblioteca list and search are all collection group queries.
@@ -76,7 +84,7 @@ service cloud.firestore {
       // clinical work with the class. Writable only by the author.
       match /diagnosticos/{docId} {
         allow read: if isSignedIn();
-        allow create: if isOwner(uid) && uidMatchesPath(uid);
+        allow create: if isOwner(uid) && uidMatchesPath(uid) && createdAtIsServerTime();
         allow update: if isOwner(uid) && createdAtPreserved();
         allow delete: if isOwner(uid);
 
@@ -97,7 +105,7 @@ service cloud.firestore {
       // ---- Biblioteca (artículos) ---------------------------------------------
       match /posts/{docId} {
         allow read: if isSignedIn();
-        allow create: if isOwner(uid) && uidMatchesPath(uid);
+        allow create: if isOwner(uid) && uidMatchesPath(uid) && createdAtIsServerTime();
         allow update: if isOwner(uid) && createdAtPreserved();
         allow delete: if isOwner(uid);
 

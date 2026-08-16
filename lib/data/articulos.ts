@@ -130,12 +130,43 @@ export async function updateArticulo(args: {
   });
 }
 
-export function matchesArticulo(a: Articulo, term: string): boolean {
+export type ArticuloMatch = {
+  articulo: Articulo;
+  score: number;
+  fields: string[];
+};
+
+/** Title, description and author — the whole of an article's searchable text. */
+export function searchArticulo(a: Articulo, term: string): ArticuloMatch | null {
   const t = normalizeText(term);
-  if (!t) return false;
-  return (
-    normalizeText(a.titulo).includes(t) ||
-    normalizeText(a.descripcion).includes(t) ||
-    normalizeText(a.username).includes(t)
-  );
+  if (!t) return null;
+
+  const candidates: Array<[string, string, number]> = [
+    ["titulo", a.titulo, 100],
+    ["username", a.username, 70],
+    ["descripcion", a.descripcion, 40],
+  ];
+
+  const hits = candidates.filter(([, value]) => normalizeText(value).includes(t));
+  if (hits.length === 0) return null;
+
+  return {
+    articulo: a,
+    score: hits.reduce((sum, [, , weight]) => sum + weight, 0),
+    fields: hits.sort((x, y) => y[2] - x[2]).map(([field]) => field),
+  };
+}
+
+export function searchArticulos(
+  list: readonly Articulo[],
+  term: string,
+): ArticuloMatch[] {
+  return list
+    .map((a) => searchArticulo(a, term))
+    .filter((m): m is ArticuloMatch => m !== null)
+    .sort(
+      (a, b) =>
+        b.score - a.score ||
+        (b.articulo.createdAt?.getTime() ?? 0) - (a.articulo.createdAt?.getTime() ?? 0),
+    );
 }
