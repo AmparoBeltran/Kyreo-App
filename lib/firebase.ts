@@ -17,6 +17,25 @@ const firebaseConfig: FirebaseOptions = {
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
 };
 
+/**
+ * These are inlined at build time, so a build without them produces an app that
+ * cannot talk to Firebase at all. Failing loudly here is deliberate — the
+ * alternative is a successful build that is silently broken in production, and
+ * Firebase's own error for this is just `auth/invalid-api-key` with no clue as
+ * to which variable is missing or where to set it.
+ */
+const missing = Object.entries(firebaseConfig)
+  .filter(([, value]) => !value)
+  .map(([key]) => `NEXT_PUBLIC_FIREBASE_${key.replace(/[A-Z]/g, (c) => `_${c}`).toUpperCase()}`);
+
+if (missing.length > 0) {
+  throw new Error(
+    `Firebase config is incomplete. Missing: ${missing.join(", ")}.\n` +
+      `Copy .env.example to .env.local for local development, or set these as ` +
+      `repository secrets for CI (see .github/workflows/ci.yml).`,
+  );
+}
+
 export const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
 
 /**
