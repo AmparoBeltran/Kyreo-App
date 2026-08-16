@@ -38,6 +38,7 @@
     "@types/react-dom": "^19.2.4",
     "eslint": "^9.39.5",
     "eslint-config-next": "^16.3.1",
+    "firebase-tools": "^15.27.0",
     "postcss": "^8.5.26",
     "prettier": "^3.9.6",
     "sharp": "^0.35.3",

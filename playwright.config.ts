@@ -12,13 +12,26 @@ export default defineConfig({
   retries: process.env.CI ? 2 : 0,
   reporter: process.env.CI ? "github" : "list",
   use: {
-    baseURL: "http://127.0.0.1:3212",
+    baseURL: "http://127.0.0.1:5000",
     trace: "on-first-retry",
   },
   projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
+
+  /*
+   * The Firebase Hosting emulator, not a generic static server.
+   *
+   * It reads firebase.json, so these tests exercise the real production
+   * semantics: trailingSlash resolution, the Cache-Control headers, and — the
+   * one that matters most here — serving out/404.html with a genuine 404 for an
+   * unmatched URL. A plain static server returns a bare 404 body, which would
+   * make the "unknown URL is not the homepage" test pass while proving nothing
+   * about what Hosting actually does.
+   *
+   * It is Node-based, so unlike the Firestore emulator it needs no JDK.
+   */
   webServer: {
-    command: "npx --yes http-server out -p 3212 --silent",
-    url: "http://127.0.0.1:3212",
+    command: "npx firebase emulators:start --only hosting --project kyreo-app",
+    url: "http://127.0.0.1:5000",
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,
   },

@@ -101,9 +101,17 @@ test.describe("static export routing", () => {
     });
   }
 
-  test("an unknown URL is not silently served the homepage", async ({ page }) => {
+  test("an unknown URL renders the 404 page, not the homepage", async ({ page }) => {
     const response = await page.goto("/esta-ruta-no-existe/");
     expect(response?.status()).toBe(404);
+
+    // Assert the CONTENT too, not just the status. The local test server returns
+    // a bare 404 body while Firebase Hosting serves out/404.html — checking the
+    // status alone would pass against the harness while telling us nothing about
+    // production. Checking for our own copy tests the contract instead.
+    await expect(page.getByRole("heading", { name: /esta página no existe/i })).toBeVisible();
+    // And it must not be Next's English fallback.
+    await expect(page.getByText(/this page could not be found/i)).toHaveCount(0);
   });
 });
 
