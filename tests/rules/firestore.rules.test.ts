@@ -18,8 +18,11 @@ import {
 } from "@firebase/rules-unit-testing";
 import { afterAll, beforeAll, beforeEach, describe, it } from "vitest";
 import {
+  collectionGroup,
   doc,
   getDoc,
+  getDocs,
+  query,
   serverTimestamp,
   setDoc,
   updateDoc,
@@ -257,6 +260,45 @@ describe("username reservations", () => {
       await setDoc(doc(ctx.firestore(), "usernames/taken"), { uid: ALICE });
     });
     await assertFails(setDoc(doc(bob(), "usernames/taken"), { uid: BOB }));
+  });
+});
+
+/**
+ * Regression tests for a bug that reached production.
+ *
+ * The rules originally scoped reads to `/users/{uid}/diagnosticos/{docId}`, which
+ * permits getDoc but DENIES the very same document via `collectionGroup()` —
+ * Firestore evaluates collection group queries against a recursive-wildcard path.
+ * The feed, the biblioteca list and search are all collection group queries, so
+ * every list rendered empty after deploy.
+ *
+ * The original suite missed it entirely because every read test used getDoc.
+ */
+describe("collection group queries (what every list actually uses)", () => {
+  it("permits the diagnósticos feed", async () => {
+    await assertSucceeds(getDocs(query(collectionGroup(alice(), "diagnosticos"))));
+  });
+
+  it("permits the biblioteca list", async () => {
+    await assertSucceeds(getDocs(query(collectionGroup(alice(), "posts"))));
+  });
+
+  it("permits reading comments across diagnósticos", async () => {
+    await assertSucceeds(getDocs(query(collectionGroup(alice(), "comments"))));
+  });
+
+  it("still denies all three to anonymous visitors", async () => {
+    await assertFails(getDocs(query(collectionGroup(anon(), "diagnosticos"))));
+    await assertFails(getDocs(query(collectionGroup(anon(), "posts"))));
+    await assertFails(getDocs(query(collectionGroup(anon(), "comments"))));
+  });
+
+  it("does not let a collection group read become a write", async () => {
+    // The recursive-wildcard blocks grant read only; writes must still be
+    // rejected for a non-owner via the path-scoped rules.
+    await assertFails(
+      updateDoc(doc(bob(), `users/${ALICE}/diagnosticos/d1`), { patron: "x" }),
+    );
   });
 });
 

@@ -36,6 +36,26 @@ service cloud.firestore {
       return request.resource.data.createdAt == resource.data.createdAt;
     }
 
+    // ---- Collection group reads ------------------------------------------------
+    //
+    // The feed, the biblioteca list and search are all collection group queries.
+    // Firestore evaluates those against a RECURSIVE WILDCARD path, not against the
+    // concrete /users/{uid}/diagnosticos/{id} path — so a rule scoped to the
+    // concrete path permits getDoc but denies the exact same document via
+    // collectionGroup(). Without these three blocks every list renders empty.
+    //
+    // Reads only. Writes stay scoped to /users/{uid}/... below, where the owner is
+    // in the path and therefore cannot be spoofed.
+    match /{path=**}/diagnosticos/{docId} {
+      allow read: if isSignedIn();
+    }
+    match /{path=**}/posts/{docId} {
+      allow read: if isSignedIn();
+    }
+    match /{path=**}/comments/{commentId} {
+      allow read: if isSignedIn();
+    }
+
     // ---- Username reservations -------------------------------------------------
     // Claimed at registration. Permanent: allowing update/delete would let one
     // student release or steal another's name, and authorship is displayed by name.
