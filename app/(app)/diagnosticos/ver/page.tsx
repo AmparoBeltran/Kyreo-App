@@ -11,6 +11,7 @@ import { DIAGNOSTICO_SECTIONS } from "@/lib/data/diagnostico-fields";
 import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { Card, EmptyState, ErrorState, Spinner } from "@/components/ui/card";
+import { Comentarios } from "@/components/comentarios";
 import { formatDate } from "@/lib/utils";
 
 /**
@@ -153,6 +154,15 @@ function DiagnosticoDetail() {
           </Card>
         );
       })}
+
+      {/* Keyed so navigating between diagnósticos remounts with clean state
+          rather than briefly showing the previous record's comments. */}
+      <Comentarios
+        key={`${d.uid}/${d.id}`}
+        diagnosticoUid={d.uid}
+        diagnosticoId={d.id}
+        slug={d.slug}
+      />
     </article>
   );
 }

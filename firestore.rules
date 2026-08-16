@@ -96,6 +96,16 @@ service cloud.firestore {
     match /diagnostics/{docId} {
       allow read: if isSignedIn();
       allow write: if false;
+
+      // The 34 surviving comments from 2019-2022 live at
+      // diagnostics/{legacyId}/comments/{id}. Firestore rules do NOT cascade to
+      // subcollections, so without this block the archive's comments would be
+      // denied — silently hiding real student discussion, which is exactly the
+      // class of bug this rebuild exists to fix.
+      match /{sub=**} {
+        allow read: if isSignedIn();
+        allow write: if false;
+      }
     }
 
     // Anything not matched above is denied. No `/{document=**}` catch-all.

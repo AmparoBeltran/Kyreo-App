@@ -68,6 +68,10 @@ beforeEach(async () => {
       username: "Paco",
       patron: "archivo 2019",
     });
+    await setDoc(doc(ctx.firestore(), "diagnostics/legacy1/comments/lc1"), {
+      author: "Paco",
+      message: "comentario de 2020",
+    });
   });
 });
 
@@ -219,6 +223,23 @@ describe("legacy 2019-2022 archive", () => {
   it("is frozen against writes, including by signed-in students", async () => {
     await assertFails(updateDoc(doc(alice(), "diagnostics/legacy1"), { patron: "x" }));
     await assertFails(deleteDoc(doc(alice(), "diagnostics/legacy1")));
+  });
+
+  it("exposes its comments subcollection for reading", async () => {
+    // Firestore rules do not cascade into subcollections. Without an explicit
+    // recursive match, all 34 surviving 2019-2022 comments would be denied —
+    // silently hiding real discussion, the exact bug class this rebuild fixes.
+    await assertSucceeds(getDoc(doc(alice(), "diagnostics/legacy1/comments/lc1")));
+  });
+
+  it("freezes the archive's comments too", async () => {
+    await assertFails(
+      updateDoc(doc(alice(), "diagnostics/legacy1/comments/lc1"), { message: "x" }),
+    );
+    await assertFails(deleteDoc(doc(alice(), "diagnostics/legacy1/comments/lc1")));
+    await assertFails(
+      setDoc(doc(alice(), "diagnostics/legacy1/comments/new"), { message: "nuevo" }),
+    );
   });
 });
 
